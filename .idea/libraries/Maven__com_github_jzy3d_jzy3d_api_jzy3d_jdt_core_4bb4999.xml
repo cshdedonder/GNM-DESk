@@ -1,0 +1,13 @@
+<component name="libraryTable">
+  <library name="Maven: com.github.jzy3d.jzy3d-api:jzy3d-jdt-core:4bb4999">
+    <CLASSES>
+      <root url="jar://$MAVEN_REPOSITORY$/com/github/jzy3d/jzy3d-api/jzy3d-jdt-core/4bb4999/jzy3d-jdt-core-4bb4999.jar!/" />
+    </CLASSES>
+    <JAVADOC>
+      <root url="jar://$MAVEN_REPOSITORY$/com/github/jzy3d/jzy3d-api/jzy3d-jdt-core/4bb4999/jzy3d-jdt-core-4bb4999-javadoc.jar!/" />
+    </JAVADOC>
+    <SOURCES>
+      <root url="jar://$MAVEN_REPOSITORY$/com/github/jzy3d/jzy3d-api/jzy3d-jdt-core/4bb4999/jzy3d-jdt-core-4bb4999-sources.jar!/" />
+    </SOURCES>
+  </library>
+</component>
