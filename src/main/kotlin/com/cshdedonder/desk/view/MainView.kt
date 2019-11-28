@@ -5,14 +5,20 @@ package com.cshdedonder.desk.view
 import com.cshdedonder.desk.chart.makeOutputModelChart
 import com.cshdedonder.desk.expression.toExpression
 import com.cshdedonder.desk.expression.toFunctionIn
-import com.cshdedonder.desk.pde.*
-import com.jogamp.opengl.GLException
+import com.cshdedonder.desk.pde.DirichletHeatEquation
+import com.cshdedonder.desk.pde.HeatEquation
+import com.cshdedonder.desk.pde.NeumannHeatEquation
+import com.cshdedonder.desk.pde.Options
 import javafx.beans.property.*
+import javafx.event.EventHandler
 import javafx.scene.Scene
 import javafx.scene.control.Alert
 import javafx.scene.control.ToggleGroup
 import javafx.scene.image.ImageView
+import javafx.scene.input.KeyCode
+import javafx.scene.input.KeyEvent
 import javafx.scene.layout.StackPane
+import javafx.stage.FileChooser
 import javafx.stage.Modality
 import javafx.stage.Stage
 import org.jzy3d.chart.AWTChart
@@ -24,17 +30,19 @@ class MainView : View("DESk - by Cedric De Donder") {
 
     private val dirichletLeftProperty: StringProperty = SimpleStringProperty("0")
     private val dirichletRightProperty: StringProperty = SimpleStringProperty("0")
-    private val neumannLeftProperty: StringProperty = SimpleStringProperty("0")
-    private val neumannRightProperty: StringProperty = SimpleStringProperty("0")
+    private val neumannLeftProperty: StringProperty = SimpleStringProperty("1")
+    private val neumannRightProperty: StringProperty = SimpleStringProperty("-1")
     private val initialFunctionProperty: StringProperty = SimpleStringProperty("sin(deg(PI*x))")
     private val numberOfMeshPointsProperty: StringProperty = SimpleStringProperty("120")
     private val relTolProperty: StringProperty = SimpleStringProperty("1e-8")
     private val absTolProperty: StringProperty = SimpleStringProperty("1e-8")
     private val endTimeProperty: StringProperty = SimpleStringProperty("0.3")
     private val wireframeProperty: BooleanProperty = SimpleBooleanProperty(true)
-    private val savePlotProperty: BooleanProperty = SimpleBooleanProperty(false)
-    private val saveNameProperty: StringProperty = SimpleStringProperty("plot")
+
     private val timeTakenProperty: StringProperty = SimpleStringProperty("")
+    private val numberStepsProperty: StringProperty = SimpleStringProperty("")
+    private val averageStepProperty: StringProperty = SimpleStringProperty("")
+    private val totalStepsProperty: StringProperty = SimpleStringProperty("")
 
     private val chartProperty: Property<AWTChart> = SimpleObjectProperty()
 
@@ -43,23 +51,42 @@ class MainView : View("DESk - by Cedric De Donder") {
 
     private val chartFactory = JavaFXChartFactory()
 
+    private val stageList: MutableList<Stage> = ArrayList()
+
     init {
         chartProperty.addListener(ChangeListener { _, _, chart ->
             if (chart != null) {
                 val imageView: ImageView = chartFactory.bindImageView(chart)
-                try {
-                    with(Stage()) {
-                        initModality(Modality.NONE)
-                        val pane = StackPane()
-                        scene = Scene(pane)
-                        title = "Plot"
-                        show()
-                        pane.children.add(imageView)
-                        chartFactory.addSceneSizeChangedListener(chart, scene)
-                        width = 600.0
-                        height = 600.0
+                with(Stage()) {
+                    initModality(Modality.NONE)
+                    val pane = StackPane().apply {
+                        // Initialise to prevent GLException
+                        minWidth = 50.0
+                        minHeight = 50.0
                     }
-                }catch (ignored: GLException) {}
+                    scene = Scene(pane)
+                    title = "Plot"
+                    show()
+                    chartFactory.addSceneSizeChangedListener(chart, scene)
+                    pane.children.add(imageView)
+                    width = 600.0
+                    height = 600.0
+                    scene.onKeyTyped = EventHandler<KeyEvent> { event ->
+                        if (event.character == "s") {
+                            val files: List<File> = chooseFile(
+                                    title = "Choose screenshot destination",
+                                    filters = arrayOf(FileChooser.ExtensionFilter("Images", "*.png")),
+                                    mode = FileChooserMode.Save
+                            )
+                            if (files.isNotEmpty()) {
+                                chart.screenshot(files[0])
+                            }
+                        } else if (event.code == KeyCode.ESCAPE) {
+                            close()
+                        }
+                    }
+                    stageList += this
+                }
             }
         })
     }
@@ -124,7 +151,7 @@ class MainView : View("DESk - by Cedric De Donder") {
                 textfield(initialFunctionProperty)
             }
             row {
-                label("Number of meshpoints (J): ")
+                label("Number of divisions in x (J): ")
                 textfield(numberOfMeshPointsProperty)
             }
             row {
@@ -142,12 +169,8 @@ class MainView : View("DESk - by Cedric De Donder") {
             row {
                 checkbox("Display wireframe", wireframeProperty)
             }
-            row {
-                checkbox("Save plot", savePlotProperty)
-                textfield(saveNameProperty).disableWhen(savePlotProperty.not())
-            }
         }
-        hbox(100) {
+        hbox(30) {
             button("Calculate").action {
                 try {
                     vboxDisableProperty.value = true
@@ -159,7 +182,15 @@ class MainView : View("DESk - by Cedric De Donder") {
                     vboxDisableProperty.value = false
                 }
             }
-            label(timeTakenProperty)
+            vbox {
+                label(timeTakenProperty)
+                label(numberStepsProperty)
+                label(averageStepProperty)
+                label(totalStepsProperty)
+            }
+        }
+        button("Close all").action {
+            stageList.forEach { it.close() }
         }
     }
 
@@ -213,9 +244,9 @@ class MainView : View("DESk - by Cedric De Donder") {
                 wireframe = wireframeProperty.value
         )
         timeTakenProperty.value = "Time taken: ${time}ms"
-        if(savePlotProperty.value){
-            chartProperty.value.screenshot(File(saveNameProperty.value))
-        }
+        numberStepsProperty.value = "Number of steps in t: ${model.numberOfSteps}"
+        averageStepProperty.value = "Average step size: ${"%e".format(model.averageStep)}"
+        totalStepsProperty.value = "Total step number: ${model.numberOfSteps * numberOfMeshPoints}"
     }
 }
 
@@ -225,7 +256,7 @@ enum class BoundaryCondition {
 
 data class TimedResult<A>(val millies: Long, val result: A)
 
-private inline fun<A> measureMillisAndReturn(block: () -> A): TimedResult<out A> {
+private inline fun <A> measureMillisAndReturn(block: () -> A): TimedResult<out A> {
     val startTime = System.currentTimeMillis()
     val result = block()
     val endTime = System.currentTimeMillis()
