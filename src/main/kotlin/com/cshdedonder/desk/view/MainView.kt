@@ -21,6 +21,7 @@ import javafx.scene.layout.StackPane
 import javafx.stage.FileChooser
 import javafx.stage.Modality
 import javafx.stage.Stage
+import javafx.stage.WindowEvent
 import org.jzy3d.chart.AWTChart
 import org.jzy3d.javafx.JavaFXChartFactory
 import tornadofx.*
@@ -86,6 +87,7 @@ class MainView : View("DESk - by Cedric De Donder") {
                         }
                     }
                     stageList += this
+                    onCloseRequest = EventHandler<WindowEvent> { stageList.remove(this) }
                 }
             }
         })
