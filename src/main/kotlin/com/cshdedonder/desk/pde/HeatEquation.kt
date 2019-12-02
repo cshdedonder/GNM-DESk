@@ -31,7 +31,7 @@ abstract class HeatEquation : FirstOrderDifferentialEquations {
     open fun integrate(): SimpleContinuousOutputModel {
         val integrator = DormandPrince853Integrator(1.0e-12, 100.0, options.absTol, options.relTol)
         with(integrator) {
-            val model = SimpleContinuousOutputModel(options)
+            val model = SimpleContinuousOutputModel(options.deltaX)
             addStepHandler(model)
             integrate(
                     this@HeatEquation,
@@ -86,7 +86,7 @@ class NeumannHeatEquation(override val options: Options) : HeatEquation() {
     }
 }
 
-class SimpleContinuousOutputModel(private val options: Options) : ContinuousOutputModel() {
+class SimpleContinuousOutputModel(private val deltaX: Double) : ContinuousOutputModel() {
 
     private val times: MutableList<Double> = ArrayList()
 
@@ -97,12 +97,12 @@ class SimpleContinuousOutputModel(private val options: Options) : ContinuousOutp
 
     operator fun get(x: Double, t: Double): Double {
         val v: DoubleArray = get(t)
-        val x0: Int = floor(x / options.deltaX).toInt()
-        val x1: Int = ceil(x / options.deltaX).toInt()
+        val x0: Int = floor(x / deltaX).toInt()
+        val x1: Int = ceil(x / deltaX).toInt()
         if (x0 == x1) {
             return v[x0]
         }
-        val w: Double = ((x / options.deltaX) - x0) / (x1 - x0)
+        val w: Double = ((x / deltaX) - x0) / (x1 - x0)
         return v[x0] * (1.0 - w) + v[x1] * w
     }
 

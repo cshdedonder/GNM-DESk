@@ -3,12 +3,10 @@
 package com.cshdedonder.desk.view
 
 import com.cshdedonder.desk.chart.makeOutputModelChart
+import com.cshdedonder.desk.expression.DoubleFunction
 import com.cshdedonder.desk.expression.toExpression
 import com.cshdedonder.desk.expression.toFunctionIn
-import com.cshdedonder.desk.pde.DirichletHeatEquation
-import com.cshdedonder.desk.pde.HeatEquation
-import com.cshdedonder.desk.pde.NeumannHeatEquation
-import com.cshdedonder.desk.pde.Options
+import com.cshdedonder.desk.pde.*
 import javafx.beans.property.*
 import javafx.event.EventHandler
 import javafx.scene.Scene
@@ -26,6 +24,7 @@ import org.jzy3d.chart.AWTChart
 import org.jzy3d.javafx.JavaFXChartFactory
 import tornadofx.*
 import java.io.File
+import java.text.NumberFormat
 
 class MainView : View("DESk - by Cedric De Donder") {
 
@@ -98,8 +97,11 @@ class MainView : View("DESk - by Cedric De Donder") {
         vboxConstraints {
             paddingAll = 40.0
         }
-        label("Solving the heat equation: du/dt=d²u/dx²") {
+        label("Solving the heat equation: \u2202u\u2215\u2202t=\u2202²u\u2215\u2202x²") {
             style = "-fx-font-weight: bold"
+        }
+        label("with: x \u2208 [0,1], 0 \u2264 t") {
+            style = "-fx-font-style: italic"
         }
         val boundaryConditions = ToggleGroup()
         val dirichletRadioButtonSelectedProperty: BooleanProperty = SimpleBooleanProperty()
@@ -137,12 +139,12 @@ class MainView : View("DESk - by Cedric De Donder") {
         }
         hbox {
             disableWhen(neumannRadioButtonSelectedPropert.not())
-            label("du(0,t)/dx= ")
+            label("\u2202u(0,t)\u2215\u2202x= ")
             textfield(neumannLeftProperty)
         }
         hbox {
             disableWhen(neumannRadioButtonSelectedPropert.not())
-            label("du(1,t)/dx= ")
+            label("\u2202u(1,t)\u2215\u2202x= ")
             textfield(neumannRightProperty)
         }
         gridpane {
@@ -203,39 +205,24 @@ class MainView : View("DESk - by Cedric De Donder") {
         val initialFunction =
                 initialFunctionProperty.value.toExpression().toFunctionIn("x")
         val endTime = endTimeProperty.value.toDouble()
-        val equation: HeatEquation = when (boundaryConditionProperty.value!!) {
-            BoundaryCondition.DIRICHLET -> {
-                val leftFunction =
-                        dirichletLeftProperty.value.toExpression().toFunctionIn("t")
-                val rightFunction =
-                        dirichletRightProperty.value.toExpression().toFunctionIn("t")
-                val options = Options(
-                        initialFunction,
-                        leftFunction,
-                        rightFunction,
-                        Pair(0.0, endTime),
-                        relTol,
-                        absTol,
-                        numberOfMeshPoints
+        val (left: DoubleFunction, right: DoubleFunction, equationFunction: (Options) -> HeatEquation) = when (boundaryConditionProperty.value!!) {
+            BoundaryCondition.DIRICHLET ->
+                Triple(
+                        dirichletLeftProperty.value.toExpression().toFunctionIn("t"),
+                        dirichletRightProperty.value.toExpression().toFunctionIn("t"),
+                        { options -> DirichletHeatEquation(options) }
                 )
-                DirichletHeatEquation(options)
-            }
-            BoundaryCondition.NEUMANN -> {
-                val leftFunction = neumannLeftProperty.value.toExpression().toFunctionIn("t")
-                val rightFunction = neumannRightProperty.value.toExpression().toFunctionIn("t")
-                val options = Options(
-                        initialFunction,
-                        leftFunction,
-                        rightFunction,
-                        Pair(0.0, endTime),
-                        relTol,
-                        absTol,
-                        numberOfMeshPoints
+            BoundaryCondition.NEUMANN ->
+                Triple<DoubleFunction, DoubleFunction, (Options) -> HeatEquation>(
+                        neumannLeftProperty.value.toExpression().toFunctionIn("t"),
+                        neumannRightProperty.value.toExpression().toFunctionIn("t"),
+                        { options -> NeumannHeatEquation(options) }
                 )
-                NeumannHeatEquation(options)
-            }
         }
-        val (time, model) = measureMillisAndReturn {
+        val equation = equationFunction(Options(
+                initialFunction, left, right, Pair(0.0, endTime), relTol, absTol, numberOfMeshPoints
+        ))
+        val (time: Long, model: SimpleContinuousOutputModel) = measureMillisAndReturn {
             equation.integrate()
         }
         chartProperty.value = makeOutputModelChart(
@@ -245,10 +232,11 @@ class MainView : View("DESk - by Cedric De Donder") {
                 tRange = Pair(0.0, endTime),
                 wireframe = wireframeProperty.value
         )
-        timeTakenProperty.value = "Time taken: ${time}ms"
-        numberStepsProperty.value = "Number of steps in t: ${model.numberOfSteps}"
-        averageStepProperty.value = "Average step size: ${"%e".format(model.averageStep)}"
-        totalStepsProperty.value = "Total step number: ${model.numberOfSteps * numberOfMeshPoints}"
+        val nf = NumberFormat.getInstance()
+        timeTakenProperty.value = "Time taken: ${nf.format(time)}ms"
+        numberStepsProperty.value = "Number of steps in t: ${nf.format(model.numberOfSteps)} steps"
+        averageStepProperty.value = "Average step size: %e".format(model.averageStep)
+        totalStepsProperty.value = "Total grid size: ${nf.format(model.numberOfSteps * numberOfMeshPoints)} vertices"
     }
 }
 
