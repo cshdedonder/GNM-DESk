@@ -17,7 +17,9 @@ fun makeOutputModelChart(
         model: SimpleContinuousOutputModel,
         factory: JavaFXChartFactory,
         xRange: Pair<Double, Double>,
+        xSteps: Int,
         tRange: Pair<Double, Double>,
+        tSteps: Int,
         wireframe: Boolean
 ): AWTChart {
     val mapper = object : Mapper() {
@@ -25,7 +27,7 @@ fun makeOutputModelChart(
     }
     val steps = 80
     val surface: Shape = Builder.buildOrthonormal(
-            OrthonormalGrid(xRange.asRange(), steps, tRange.asRange(), steps),
+            OrthonormalGrid(xRange.asRange(), xSteps, tRange.asRange(), tSteps),
             mapper
     )
     with(surface) {

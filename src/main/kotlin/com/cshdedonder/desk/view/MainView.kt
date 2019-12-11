@@ -25,18 +25,20 @@ import org.jzy3d.javafx.JavaFXChartFactory
 import tornadofx.*
 import java.io.File
 import java.text.NumberFormat
+import kotlin.math.min
 
 class MainView : View("DESk - by Cedric De Donder") {
 
     private val dirichletLeftProperty: StringProperty = SimpleStringProperty("0")
-    private val dirichletRightProperty: StringProperty = SimpleStringProperty("0")
-    private val neumannLeftProperty: StringProperty = SimpleStringProperty("1")
+    private val dirichletRightProperty: StringProperty = SimpleStringProperty("1")
+    private val neumannLeftProperty: StringProperty = SimpleStringProperty("0")
     private val neumannRightProperty: StringProperty = SimpleStringProperty("-1")
-    private val initialFunctionProperty: StringProperty = SimpleStringProperty("sin(deg(PI*x))")
-    private val numberOfMeshPointsProperty: StringProperty = SimpleStringProperty("120")
+    private val initialFunctionProperty: StringProperty = SimpleStringProperty("sin(deg(PI*x/2))")
+    private val numberOfMeshPointsProperty: StringProperty = SimpleStringProperty("10")
     private val relTolProperty: StringProperty = SimpleStringProperty("1e-8")
     private val absTolProperty: StringProperty = SimpleStringProperty("1e-8")
-    private val endTimeProperty: StringProperty = SimpleStringProperty("0.3")
+    private val endTimeProperty: StringProperty = SimpleStringProperty("0.5")
+    private val numberOfTSamplePointsProperty: StringProperty = SimpleStringProperty("80")
     private val wireframeProperty: BooleanProperty = SimpleBooleanProperty(true)
 
     private val timeTakenProperty: StringProperty = SimpleStringProperty("")
@@ -171,6 +173,10 @@ class MainView : View("DESk - by Cedric De Donder") {
                 textfield(endTimeProperty)
             }
             row {
+                label("Number of sample points in t: ")
+                textfield(numberOfTSamplePointsProperty)
+            }
+            row {
                 checkbox("Display wireframe", wireframeProperty)
             }
         }
@@ -205,6 +211,7 @@ class MainView : View("DESk - by Cedric De Donder") {
         val initialFunction =
                 initialFunctionProperty.value.toExpression().toFunctionIn("x")
         val endTime = endTimeProperty.value.toDouble()
+        val numberOfTSamplePoints = numberOfTSamplePointsProperty.value.toInt()
         val (left: DoubleFunction, right: DoubleFunction, equationFunction: (Options) -> HeatEquation) = when (boundaryConditionProperty.value!!) {
             BoundaryCondition.DIRICHLET ->
                 Triple(
@@ -229,7 +236,9 @@ class MainView : View("DESk - by Cedric De Donder") {
                 model,
                 chartFactory,
                 xRange = Pair(0.0, 1.0),
+                xSteps = min(80, numberOfMeshPoints),
                 tRange = Pair(0.0, endTime),
+                tSteps = min(80, numberOfTSamplePoints),
                 wireframe = wireframeProperty.value
         )
         val nf = NumberFormat.getInstance()
